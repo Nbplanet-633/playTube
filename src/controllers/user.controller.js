@@ -5,7 +5,8 @@ import { uploadToCloudinary } from "../utils/cloudinary.js";
 import { deleteFromCloudinary } from "../utils/deleteFromCloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { use } from "react";
-import jwt from "JsonWebTokenError";
+import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -158,8 +159,8 @@ const logoutUser = asyncHandler(async (req, res) => {
   User.findByIdAndUpdate(
     req.user._id,
     {
-      $set: {
-        refreshToken: undefined,
+      $unset: {
+        refreshToken: 1,
       },
     },
     {
@@ -335,6 +336,7 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
 
 const getUserChannelProfile = asyncHandler(async (req, res) => {
   const { username } = req.params;
+  
 
   if (!username?.trim()) {
     throw new ApiError(400, "username is mising");
@@ -344,23 +346,23 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     {
       $match: {
         username: username?.toLowerCase(),
-      },
+      }
     },
     {
       $lookup: {
-        from: "subscription",
+        from: "subscriptions",
         localField: "_id",
         foreignField: "channel",
         as: "subscribers",
-      },
+      }
     },
     {
       $lookup: {
-        from: "subscription",
+        from: "subscriptions",
         localField: "_id",
-        foreignField: "subscribers",
+        foreignField: "subscriber",
         as: "subscribedTo",
-      },
+      }
     },
     {
       $addFields: {
@@ -391,18 +393,17 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         email: 1,
       },
     },
-  ]);
-});
-
-if (!channel?.length) {
+  ])
+  if (!channel?.length) {
   throw new ApiError(400, "channel does not exists");
-
+  }
   return res
     .status(200)
     .json(
       new ApiResponse(200, channel[0], "User channel fetched successfully"),
     );
-}
+
+});
 
 const getWatchHistory = asyncHandler(async (req, res) => {
   const user = await User.aggregate([
